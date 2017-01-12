@@ -1,6 +1,6 @@
-import core from '../../core';
-// @see https://github.com/substack/brfs/issues/25
-const glslify = require('glslify');
+import * as core from '../../core';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 /**
  * Does nothing. Very handy.
@@ -9,19 +9,20 @@ const glslify = require('glslify');
  * @extends PIXI.Filter
  * @memberof PIXI.filters
  */
-class VoidFilter extends core.Filter
+export default class VoidFilter extends core.Filter
 {
+    /**
+     *
+     */
     constructor()
     {
         super(
             // vertex shader
-            glslify('../fragments/default.vert'),
+            readFileSync(join(__dirname, '../fragments/default.vert'), 'utf8'),
             // fragment shader
-            glslify('./void.frag')
+            readFileSync(join(__dirname, './void.frag'), 'utf8')
         );
 
         this.glShaderKey = 'void';
     }
 }
-
-export default VoidFilter;

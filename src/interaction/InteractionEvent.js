@@ -4,20 +4,23 @@
  * @class
  * @memberof PIXI.interaction
  */
-class InteractionEvent
+export default class InteractionEvent
 {
-
+    /**
+     *
+     */
     constructor()
     {
         /**
-         * Which this event will continue propagating in the tree
+         * Whether this event will continue propagating in the tree
          *
          * @member {boolean}
          */
         this.stopped = false;
 
         /**
-         * The object to which event is dispatched.
+         * The object which caused this event to be dispatched.
+         * For listener callback see {@link PIXI.interaction.InteractionEvent.currentTarget}.
          *
          * @member {PIXI.DisplayObject}
          */
@@ -47,6 +50,7 @@ class InteractionEvent
 
     /**
      * Prevents event from reaching any objects other than the current object.
+     *
      */
     stopPropagation()
     {
@@ -55,6 +59,8 @@ class InteractionEvent
 
     /**
      * Prevents event from reaching any objects other than the current object.
+     *
+     * @private
      */
     _reset()
     {
@@ -62,7 +68,4 @@ class InteractionEvent
         this.currentTarget = null;
         this.target = null;
     }
-
 }
-
-export default InteractionEvent;

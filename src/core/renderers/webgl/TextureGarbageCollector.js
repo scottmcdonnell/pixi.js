@@ -1,24 +1,27 @@
-import CONST from '../../const';
+import { GC_MODES } from '../../const';
+import settings from '../../settings';
 
 /**
- * TextureGarbageCollector. This class manages the GPU and ensures that it does not get clogged up with textures that are no longer being used.
+ * TextureGarbageCollector. This class manages the GPU and ensures that it does not get clogged
+ * up with textures that are no longer being used.
  *
  * @class
  * @memberof PIXI
- * @param renderer {PIXI.WebGLRenderer} The renderer this manager works for.
  */
-class TextureGarbageCollector
+export default class TextureGarbageCollector
 {
+    /**
+     * @param {PIXI.WebGLRenderer} renderer - The renderer this manager works for.
+     */
     constructor(renderer)
     {
         this.renderer = renderer;
 
         this.count = 0;
         this.checkCount = 0;
-        this.maxIdle = 60 * 60;
-        this.checkCountMax = 60 * 10;
-
-        this.mode = CONST.GC_MODES.DEFAULT;
+        this.maxIdle = settings.GC_MAX_IDLE;
+        this.checkCountMax = settings.GC_MAX_CHECK_COUNT;
+        this.mode = settings.GC_MODE;
     }
 
     /**
@@ -29,15 +32,14 @@ class TextureGarbageCollector
     {
         this.count++;
 
-        if(this.mode === CONST.GC_MODES.MANUAL)
+        if (this.mode === GC_MODES.MANUAL)
         {
             return;
         }
 
         this.checkCount++;
 
-
-        if(this.checkCount > this.checkCountMax)
+        if (this.checkCount > this.checkCountMax)
         {
             this.checkCount = 0;
 
@@ -70,7 +72,8 @@ class TextureGarbageCollector
 
         if (wasRemoved)
         {
-            let j=0;
+            let j = 0;
+
             for (let i = 0; i < managedTextures.length; i++)
             {
                 if (managedTextures[i] !== null)
@@ -86,13 +89,14 @@ class TextureGarbageCollector
     /**
      * Removes all the textures within the specified displayObject and its children from the GPU
      *
-     * @param displayObject {PIXI.DisplayObject} the displayObject to remove the textures from.
+     * @param {PIXI.DisplayObject} displayObject - the displayObject to remove the textures from.
      */
-    unload( displayObject )
+    unload(displayObject)
     {
         const tm = this.renderer.textureManager;
 
-        if(displayObject._texture)
+        // only destroy non generated textures
+        if (displayObject._texture && displayObject._texture._glRenderTargets)
         {
             tm.destroyTexture(displayObject._texture, true);
         }
@@ -103,5 +107,3 @@ class TextureGarbageCollector
         }
     }
 }
-
-export default TextureGarbageCollector;

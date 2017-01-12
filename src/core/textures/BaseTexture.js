@@ -1,5 +1,8 @@
-import utils from '../utils';
-import CONST from '../const';
+import {
+    uid, getUrlFileExtension, decomposeDataUri, getSvgSize,
+    getResolutionOfUrl, BaseTextureCache, TextureCache,
+} from '../utils';
+import settings from '../settings';
 import EventEmitter from 'eventemitter3';
 import determineCrossOrigin from '../utils/determineCrossOrigin';
 import bitTwiddle from 'bit-twiddle';
@@ -10,17 +13,19 @@ import bitTwiddle from 'bit-twiddle';
  * @class
  * @extends EventEmitter
  * @memberof PIXI
- * @param [source ]{HTMLImageElement|HTMLCanvasElement} the source object of the texture.
- * @param [scaleMode=PIXI.SCALE_MODES.DEFAULT] {number} See {@link PIXI.SCALE_MODES} for possible values
- * @param [resolution=1] {number} The resolution / device pixel ratio of the texture
  */
-class BaseTexture extends EventEmitter
+export default class BaseTexture extends EventEmitter
 {
+    /**
+     * @param {HTMLImageElement|HTMLCanvasElement} [source] - the source object of the texture.
+     * @param {number} [scaleMode=PIXI.settings.SCALE_MODE] - See {@link PIXI.SCALE_MODES} for possible values
+     * @param {number} [resolution=1] - The resolution / device pixel ratio of the texture
+     */
     constructor(source, scaleMode, resolution)
     {
         super();
 
-        this.uid = utils.uid();
+        this.uid = uid();
 
         this.touched = 0;
 
@@ -30,21 +35,21 @@ class BaseTexture extends EventEmitter
          * @member {number}
          * @default 1
          */
-        this.resolution = resolution || CONST.RESOLUTION;
+        this.resolution = resolution || settings.RESOLUTION;
 
         /**
          * The width of the base texture set when the image has loaded
          *
-         * @member {number}
          * @readonly
+         * @member {number}
          */
         this.width = 100;
 
         /**
          * The height of the base texture set when the image has loaded
          *
-         * @member {number}
          * @readonly
+         * @member {number}
          */
         this.height = 100;
 
@@ -53,15 +58,15 @@ class BaseTexture extends EventEmitter
         /**
          * Used to store the actual width of the source of this texture
          *
-         * @member {number}
          * @readonly
+         * @member {number}
          */
         this.realWidth = 100;
         /**
          * Used to store the actual height of the source of this texture
          *
-         * @member {number}
          * @readonly
+         * @member {number}
          */
         this.realHeight = 100;
 
@@ -69,18 +74,18 @@ class BaseTexture extends EventEmitter
          * The scale mode to apply when scaling this texture
          *
          * @member {number}
-         * @default PIXI.SCALE_MODES.DEFAULT
+         * @default PIXI.settings.SCALE_MODE
          * @see PIXI.SCALE_MODES
          */
-        this.scaleMode = scaleMode || CONST.SCALE_MODES.DEFAULT;
+        this.scaleMode = scaleMode || settings.SCALE_MODE;
 
         /**
          * Set to true once the base texture has successfully loaded.
          *
          * This is never true if the underlying source fails to load or has no texture data.
          *
-         * @member {boolean}
          * @readonly
+         * @member {boolean}
          */
         this.hasLoaded = false;
 
@@ -91,8 +96,8 @@ class BaseTexture extends EventEmitter
          * dispatched when the operation ends. An underyling source that is
          * immediately-available bypasses loading entirely.
          *
-         * @member {boolean}
          * @readonly
+         * @member {boolean}
          */
         this.isLoading = false;
 
@@ -101,8 +106,8 @@ class BaseTexture extends EventEmitter
          *
          * TODO: Make this a setter that calls loadSource();
          *
-         * @member {HTMLImageElement|HTMLCanvasElement}
          * @readonly
+         * @member {HTMLImageElement|HTMLCanvasElement}
          */
         this.source = null; // set in loadSource, if at all
 
@@ -112,24 +117,24 @@ class BaseTexture extends EventEmitter
          *
          * TODO: Currently not in use but could be used when re-scaling svg.
          *
-         * @member {Image}
          * @readonly
+         * @member {Image}
          */
         this.origSource = null; // set in loadSvg, if at all
 
         /**
          * Type of image defined in source, eg. `png` or `svg`
          *
-         * @member {string}
          * @readonly
+         * @member {string}
          */
         this.imageType = null; // set in updateImageType
 
         /**
          * Scale for source image. Used with Svg images to scale them before rasterization.
          *
-         * @member {number}
          * @readonly
+         * @member {number}
          */
         this.sourceScale = 1.0;
 
@@ -150,9 +155,11 @@ class BaseTexture extends EventEmitter
         this.imageUrl = null;
 
         /**
-         * Wether or not the texture is a power of two, try to use power of two textures as much as you can
-         * @member {boolean}
+         * Whether or not the texture is a power of two, try to use power of two textures as much
+         * as you can
+         *
          * @private
+         * @member {boolean}
          */
         this.isPowerOfTwo = false;
 
@@ -160,13 +167,14 @@ class BaseTexture extends EventEmitter
 
         /**
          *
-         * Set this to true if a mipmap of this texture needs to be generated. This value needs to be set before the texture is used
+         * Set this to true if a mipmap of this texture needs to be generated. This value needs
+         * to be set before the texture is used
          * Also the texture must be a power of two size to work
          *
          * @member {boolean}
          * @see PIXI.MIPMAP_TEXTURES
          */
-        this.mipmap = CONST.MIPMAP_TEXTURES;
+        this.mipmap = settings.MIPMAP_TEXTURES;
 
         /**
          *
@@ -175,17 +183,18 @@ class BaseTexture extends EventEmitter
          * @member {number}
          * @see PIXI.WRAP_MODES
          */
-        this.wrapMode = CONST.WRAP_MODES.DEFAULT;
+        this.wrapMode = settings.WRAP_MODE;
 
         /**
          * A map of renderer IDs to webgl textures
          *
-         * @member {object<number, WebGLTexture>}
          * @private
+         * @member {object<number, WebGLTexture>}
          */
-        this._glTextures = [];
+        this._glTextures = {};
+
         this._enabled = 0;
-        this._id = 0;
+        this._virtalBoundId = -1;
 
         // if no source passed don't try to load
         if (source)
@@ -196,17 +205,17 @@ class BaseTexture extends EventEmitter
         /**
          * Fired when a not-immediately-available source finishes loading.
          *
+         * @protected
          * @event loaded
          * @memberof PIXI.BaseTexture#
-         * @protected
          */
 
         /**
          * Fired when a not-immediately-available source fails to load.
          *
+         * @protected
          * @event error
          * @memberof PIXI.BaseTexture#
-         * @protected
          */
     }
 
@@ -251,11 +260,12 @@ class BaseTexture extends EventEmitter
      *     }
      *
      * @protected
-     * @param source {HTMLImageElement|HTMLCanvasElement} the source object of the texture.
+     * @param {HTMLImageElement|HTMLCanvasElement} source - the source object of the texture.
      */
     loadSource(source)
     {
         const wasLoading = this.isLoading;
+
         this.hasLoaded = false;
         this.isLoading = false;
 
@@ -265,10 +275,12 @@ class BaseTexture extends EventEmitter
             this.source.onerror = null;
         }
 
+        const firstSourceLoaded = !this.source;
+
         this.source = source;
 
         // Apply source if loaded. Otherwise setup appropriate loading monitors.
-        if ((source.src && source.complete || source.getContext) && source.width && source.height)
+        if (((source.src && source.complete) || source.getContext) && source.width && source.height)
         {
             this._updateImageType();
 
@@ -280,16 +292,21 @@ class BaseTexture extends EventEmitter
             {
                 this._sourceLoaded();
             }
+
+            if (firstSourceLoaded)
+            {
+                // send loaded event if previous source was null and we have been passed a pre-loaded IMG element
+                this.emit('loaded', this);
+            }
         }
         else if (!source.getContext)
         {
-
             // Image fail / not ready
             this.isLoading = true;
 
             const scope = this;
 
-            source.onload = function ()
+            source.onload = () =>
             {
                 scope._updateImageType();
                 source.onload = null;
@@ -306,13 +323,14 @@ class BaseTexture extends EventEmitter
                 if (scope.imageType === 'svg')
                 {
                     scope._loadSvgSource();
+
                     return;
                 }
 
                 scope.emit('loaded', scope);
             };
 
-            source.onerror = function ()
+            source.onerror = () =>
             {
                 source.onload = null;
                 source.onerror = null;
@@ -332,7 +350,6 @@ class BaseTexture extends EventEmitter
             // NOTE: complete will be true if the image has no src so best to check if the src is set.
             if (source.complete && source.src)
             {
-
                 // ..and if we're complete now, no need for callbacks
                 source.onload = null;
                 source.onerror = null;
@@ -340,6 +357,7 @@ class BaseTexture extends EventEmitter
                 if (scope.imageType === 'svg')
                 {
                     scope._loadSvgSource();
+
                     return;
                 }
 
@@ -355,13 +373,10 @@ class BaseTexture extends EventEmitter
                         this.emit('loaded', this);
                     }
                 }
-                else
+                // If any previous subscribers possible
+                else if (wasLoading)
                 {
-                    // If any previous subscribers possible
-                    if (wasLoading)
-                    {
-                        this.emit('error', this);
-                    }
+                    this.emit('error', this);
                 }
             }
         }
@@ -377,14 +392,15 @@ class BaseTexture extends EventEmitter
             return;
         }
 
-        const dataUri = utils.decomposeDataUri(this.imageUrl);
+        const dataUri = decomposeDataUri(this.imageUrl);
         let imageType;
 
         if (dataUri && dataUri.mediaType === 'image')
         {
             // Check for subType validity
             const firstSubType = dataUri.subType.split('+')[0];
-            imageType = utils.getImageTypeOfUrl('.' + firstSubType);
+
+            imageType = getUrlFileExtension(`.${firstSubType}`);
 
             if (!imageType)
             {
@@ -393,11 +409,11 @@ class BaseTexture extends EventEmitter
         }
         else
         {
-            imageType = utils.getImageTypeOfUrl(this.imageUrl);
+            imageType = getUrlFileExtension(this.imageUrl);
 
             if (!imageType)
             {
-                throw new Error('Invalid image type in URL.');
+                imageType = 'png';
             }
         }
 
@@ -416,7 +432,7 @@ class BaseTexture extends EventEmitter
             return;
         }
 
-        const dataUri = utils.decomposeDataUri(this.imageUrl);
+        const dataUri = decomposeDataUri(this.imageUrl);
 
         if (dataUri)
         {
@@ -431,6 +447,8 @@ class BaseTexture extends EventEmitter
 
     /**
      * Reads an SVG string from data URI and then calls `_loadSvgSourceUsingString`.
+     *
+     * @param {string} dataUri - The data uri to load from.
      */
     _loadSvgSourceUsingDataUri(dataUri)
     {
@@ -466,22 +484,17 @@ class BaseTexture extends EventEmitter
         // but overrideMimeType() can be used to force the response to be parsed as XML
         // svgXhr.overrideMimeType('image/svg+xml');
 
-        const scope = this;
-
-        svgXhr.onload = function ()
+        svgXhr.onload = () =>
         {
             if (svgXhr.readyState !== svgXhr.DONE || svgXhr.status !== 200)
             {
                 throw new Error('Failed to load SVG using XHR.');
             }
 
-            scope._loadSvgSourceUsingString(svgXhr.response);
+            this._loadSvgSourceUsingString(svgXhr.response);
         };
 
-        svgXhr.onerror = function ()
-        {
-            scope.emit('error', scope);
-        };
+        svgXhr.onerror = () => this.emit('error', this);
 
         svgXhr.open('GET', this.imageUrl, true);
         svgXhr.send();
@@ -498,7 +511,7 @@ class BaseTexture extends EventEmitter
      */
     _loadSvgSourceUsingString(svgString)
     {
-        const svgSize = utils.getSvgSize(svgString);
+        const svgSize = getSvgSize(svgString);
 
         const svgWidth = svgSize.width;
         const svgHeight = svgSize.height;
@@ -520,9 +533,10 @@ class BaseTexture extends EventEmitter
 
         // Create a canvas element
         const canvas = document.createElement('canvas');
+
         canvas.width = this.realWidth;
         canvas.height = this.realHeight;
-        canvas._pixiId = 'canvas_' + utils.uid();
+        canvas._pixiId = `canvas_${uid()}`;
 
         // Draw the Svg to the canvas
         canvas
@@ -534,7 +548,7 @@ class BaseTexture extends EventEmitter
         this.source = canvas;
 
         // Add also the canvas in cache (destroy clears by `imageUrl` and `source._pixiId`)
-        utils.BaseTextureCache[canvas._pixiId] = this;
+        BaseTextureCache[canvas._pixiId] = this;
 
         this.isLoading = false;
         this._sourceLoaded();
@@ -561,8 +575,8 @@ class BaseTexture extends EventEmitter
     {
         if (this.imageUrl)
         {
-            delete utils.BaseTextureCache[this.imageUrl];
-            delete utils.TextureCache[this.imageUrl];
+            delete BaseTextureCache[this.imageUrl];
+            delete TextureCache[this.imageUrl];
 
             this.imageUrl = null;
 
@@ -574,7 +588,7 @@ class BaseTexture extends EventEmitter
         // An svg source has both `imageUrl` and `__pixiId`, so no `else if` here
         if (this.source && this.source._pixiId)
         {
-            delete utils.BaseTextureCache[this.source._pixiId];
+            delete BaseTextureCache[this.source._pixiId];
         }
 
         this.source = null;
@@ -591,16 +605,13 @@ class BaseTexture extends EventEmitter
     dispose()
     {
         this.emit('dispose', this);
-
-        // this should no longer be needed, the renderers should cleanup all the gl textures.
-        // this._glTextures = {};
     }
 
     /**
      * Changes the source image of the texture.
      * The original source must be an Image element.
      *
-     * @param newSrc {string} the path of the image
+     * @param {string} newSrc - the path of the image
      */
     updateSourceImage(newSrc)
     {
@@ -614,22 +625,21 @@ class BaseTexture extends EventEmitter
      * If the image is not in the base texture cache it will be created and loaded.
      *
      * @static
-     * @param imageUrl {string} The image url of the texture
-     * @param [crossorigin=(auto)] {boolean} Should use anonymous CORS? Defaults to true if the URL is not a data-URI.
-     * @param [scaleMode=PIXI.SCALE_MODES.DEFAULT] {number} See {@link PIXI.SCALE_MODES} for possible values
-     * @param [sourceScale=(auto)] {number} Scale for the original image, used with Svg images.
-     * @return PIXI.BaseTexture
+     * @param {string} imageUrl - The image url of the texture
+     * @param {boolean} [crossorigin=(auto)] - Should use anonymous CORS? Defaults to true if the URL is not a data-URI.
+     * @param {number} [scaleMode=PIXI.settings.SCALE_MODE] - See {@link PIXI.SCALE_MODES} for possible values
+     * @param {number} [sourceScale=(auto)] - Scale for the original image, used with Svg images.
+     * @return {PIXI.BaseTexture} The new base texture.
      */
     static fromImage(imageUrl, crossorigin, scaleMode, sourceScale)
     {
-        let baseTexture = utils.BaseTextureCache[imageUrl];
+        let baseTexture = BaseTextureCache[imageUrl];
 
         if (!baseTexture)
         {
             // new Image() breaks tex loading in some versions of Chrome.
             // See https://code.google.com/p/chromium/issues/detail?id=238071
-            const image = new Image();//document.createElement('img');
-
+            const image = new Image();// document.createElement('img');
 
             if (crossorigin === undefined && imageUrl.indexOf('data:') !== 0)
             {
@@ -645,11 +655,11 @@ class BaseTexture extends EventEmitter
             }
 
             // if there is an @2x at the end of the url we are going to assume its a highres image
-            baseTexture.resolution = utils.getResolutionOfUrl(imageUrl);
+            baseTexture.resolution = getResolutionOfUrl(imageUrl);
 
             image.src = imageUrl; // Setting this triggers load
 
-            utils.BaseTextureCache[imageUrl] = baseTexture;
+            BaseTextureCache[imageUrl] = baseTexture;
         }
 
         return baseTexture;
@@ -659,27 +669,25 @@ class BaseTexture extends EventEmitter
      * Helper function that creates a base texture from the given canvas element.
      *
      * @static
-     * @param canvas {HTMLCanvasElement} The canvas element source of the texture
-     * @param scaleMode {number} See {@link PIXI.SCALE_MODES} for possible values
-     * @return PIXI.BaseTexture
+     * @param {HTMLCanvasElement} canvas - The canvas element source of the texture
+     * @param {number} scaleMode - See {@link PIXI.SCALE_MODES} for possible values
+     * @return {PIXI.BaseTexture} The new base texture.
      */
     static fromCanvas(canvas, scaleMode)
     {
         if (!canvas._pixiId)
         {
-            canvas._pixiId = 'canvas_' + utils.uid();
+            canvas._pixiId = `canvas_${uid()}`;
         }
 
-        let baseTexture = utils.BaseTextureCache[canvas._pixiId];
+        let baseTexture = BaseTextureCache[canvas._pixiId];
 
         if (!baseTexture)
         {
             baseTexture = new BaseTexture(canvas, scaleMode);
-            utils.BaseTextureCache[canvas._pixiId] = baseTexture;
+            BaseTextureCache[canvas._pixiId] = baseTexture;
         }
 
         return baseTexture;
     }
 }
-
-export default BaseTexture;

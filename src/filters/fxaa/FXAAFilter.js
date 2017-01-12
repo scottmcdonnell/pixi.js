@@ -1,5 +1,6 @@
-import core from '../../core';
-const glslify = require('glslify');
+import * as core from '../../core';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 /**
  *
@@ -11,22 +12,22 @@ const glslify = require('glslify');
  *
  * @class
  * @extends PIXI.Filter
- * @memberof PIXI
+ * @memberof PIXI.filters
  *
  */
-class FXAAFilter extends core.Filter
+export default class FXAAFilter extends core.Filter
 {
+    /**
+     *
+     */
     constructor()
     {
-        //TODO - needs work
+        // TODO - needs work
         super(
             // vertex shader
-            glslify('./fxaa.vert'),
+            readFileSync(join(__dirname, './fxaa.vert'), 'utf8'),
             // fragment shader
-            glslify('./fxaa.frag')
+            readFileSync(join(__dirname, './fxaa.frag'), 'utf8')
         );
-
     }
 }
-
-export default FXAAFilter;

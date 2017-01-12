@@ -1,4 +1,4 @@
-import core from '../core';
+import * as core from '../core';
 import ObservablePoint from '../core/math/ObservablePoint';
 
 /**
@@ -18,39 +18,39 @@ import ObservablePoint from '../core/math/ObservablePoint';
  * @class
  * @extends PIXI.Container
  * @memberof PIXI.extras
- * @param text {string} The copy that you would like the text to display
- * @param style {object} The style parameters
- * @param style.font {string|object} The font descriptor for the object, can be passed as a string of form
- *      "24px FontName" or "FontName" or as an object with explicit name/size properties.
- * @param [style.font.name] {string} The bitmap font id
- * @param [style.font.size] {number} The size of the font in pixels, e.g. 24
- * @param [style.align='left'] {string} Alignment for multiline text ('left', 'center' or 'right'), does not affect
- *      single line text
- * @param [style.tint=0xFFFFFF] {number} The tint color
  */
-class BitmapText extends core.Container
+export default class BitmapText extends core.Container
 {
+    /**
+     * @param {string} text - The copy that you would like the text to display
+     * @param {object} style - The style parameters
+     * @param {string|object} style.font - The font descriptor for the object, can be passed as a string of form
+     *      "24px FontName" or "FontName" or as an object with explicit name/size properties.
+     * @param {string} [style.font.name] - The bitmap font id
+     * @param {number} [style.font.size] - The size of the font in pixels, e.g. 24
+     * @param {string} [style.align='left'] - Alignment for multiline text ('left', 'center' or 'right'), does not affect
+     *      single line text
+     * @param {number} [style.tint=0xFFFFFF] - The tint color
+     */
     constructor(text, style = {})
     {
         super();
 
         /**
-         * The width of the overall text, different from fontSize,
-         * which is defined in the style object
+         * Private tracker for the width of the overall text
          *
          * @member {number}
-         * @readonly
+         * @private
          */
-        this.textWidth = 0;
+        this._textWidth = 0;
 
         /**
-         * The height of the overall text, different from fontSize,
-         * which is defined in the style object
+         * Private tracker for the height of the overall text
          *
          * @member {number}
-         * @readonly
+         * @private
          */
-        this.textHeight = 0;
+        this._textHeight = 0;
 
         /**
          * Private tracker for the letter sprite pool.
@@ -70,7 +70,7 @@ class BitmapText extends core.Container
             tint: style.tint !== undefined ? style.tint : 0xFFFFFF,
             align: style.align || 'left',
             name: null,
-            size: 0
+            size: 0,
         };
 
         /**
@@ -90,7 +90,8 @@ class BitmapText extends core.Container
         this._text = text;
 
         /**
-         * The max width of this bitmap text in pixels. If the text provided is longer than the value provided, line breaks will be automatically inserted in the last whitespace.
+         * The max width of this bitmap text in pixels. If the text provided is longer than the
+         * value provided, line breaks will be automatically inserted in the last whitespace.
          * Disable by setting value to 0
          *
          * @member {number}
@@ -98,7 +99,8 @@ class BitmapText extends core.Container
         this.maxWidth = 0;
 
         /**
-         * The max line height. This is useful when trying to use the total height of the Text, ie: when trying to vertically align.
+         * The max line height. This is useful when trying to use the total height of the Text,
+         * ie: when trying to vertically align.
          *
          * @member {number}
          */
@@ -110,7 +112,7 @@ class BitmapText extends core.Container
          * @member {PIXI.ObservablePoint}
          * @private
          */
-        this._anchor = new ObservablePoint(this.makeDirty, this, 0, 0);
+        this._anchor = new ObservablePoint(() => { this.dirty = true; }, this, 0, 0);
 
         /**
          * The dirty state of this object.
@@ -197,7 +199,7 @@ class BitmapText extends core.Container
                 texture: charData.texture,
                 line,
                 charCode,
-                position: new core.Point(pos.x + charData.xOffset, pos.y + charData.yOffset)
+                position: new core.Point(pos.x + charData.xOffset, pos.y + charData.yOffset),
             });
             lastLineWidth = pos.x + (charData.texture.width + charData.xOffset);
             pos.x += charData.xAdvance;
@@ -260,16 +262,16 @@ class BitmapText extends core.Container
             this.removeChild(this._glyphs[i]);
         }
 
-        this.textWidth = maxLineWidth * scale;
-        this.textHeight = (pos.y + data.lineHeight) * scale;
+        this._textWidth = maxLineWidth * scale;
+        this._textHeight = (pos.y + data.lineHeight) * scale;
 
         // apply anchor
         if (this.anchor.x !== 0 || this.anchor.y !== 0)
         {
             for (let i = 0; i < lenChars; i++)
             {
-                this._glyphs[i].x -= this.textWidth * this.anchor.x;
-                this._glyphs[i].y -= this.textHeight * this.anchor.y;
+                this._glyphs[i].x -= this._textWidth * this.anchor.x;
+                this._glyphs[i].y -= this._textHeight * this.anchor.y;
             }
         }
         this.maxLineHeight = maxLineHeight * scale;
@@ -291,10 +293,10 @@ class BitmapText extends core.Container
      *
      * @return {PIXI.Rectangle} The rectangular bounding area
      */
-
     getLocalBounds()
     {
         this.validate();
+
         return super.getLocalBounds();
     }
 
@@ -312,23 +314,17 @@ class BitmapText extends core.Container
         }
     }
 
-    makeDirty()
-    {
-        this.dirty = true;
-    }
-
     /**
      * The tint of the BitmapText object
      *
      * @member {number}
-     * @memberof PIXI.extras.BitmapText#
      */
     get tint()
     {
         return this._font.tint;
     }
 
-    set tint(value)
+    set tint(value) // eslint-disable-line require-jsdoc
     {
         this._font.tint = (typeof value === 'number' && value >= 0) ? value : 0xFFFFFF;
 
@@ -340,14 +336,13 @@ class BitmapText extends core.Container
      *
      * @member {string}
      * @default 'left'
-     * @memberof PIXI.extras.BitmapText#
      */
     get align()
     {
         return this._font.align;
     }
 
-    set align(value)
+    set align(value) // eslint-disable-line require-jsdoc
     {
         this._font.align = value || 'left';
 
@@ -361,14 +356,13 @@ class BitmapText extends core.Container
      * Setting the anchor to 1,1 would mean the text's origin point will be the bottom right corner
      *
      * @member {PIXI.Point | number}
-     * @memberof PIXI.extras.BitmapText#
      */
     get anchor()
     {
         return this._anchor;
     }
 
-    set anchor(value)
+    set anchor(value) // eslint-disable-line require-jsdoc
     {
         if (typeof value === 'number')
         {
@@ -384,14 +378,13 @@ class BitmapText extends core.Container
      * The font descriptor of the BitmapText object
      *
      * @member {string|object}
-     * @memberof PIXI.extras.BitmapText#
      */
     get font()
     {
         return this._font;
     }
 
-    set font(value)
+    set font(value) // eslint-disable-line require-jsdoc
     {
         if (!value)
         {
@@ -418,14 +411,13 @@ class BitmapText extends core.Container
      * The text of the BitmapText object
      *
      * @member {string}
-     * @memberof PIXI.extras.BitmapText#
      */
     get text()
     {
         return this._text;
     }
 
-    set text(value)
+    set text(value) // eslint-disable-line require-jsdoc
     {
         value = value.toString() || ' ';
         if (this._text === value)
@@ -435,8 +427,34 @@ class BitmapText extends core.Container
         this._text = value;
         this.dirty = true;
     }
-}
 
-export default BitmapText;
+    /**
+     * The width of the overall text, different from fontSize,
+     * which is defined in the style object
+     *
+     * @member {number}
+     * @readonly
+     */
+    get textWidth()
+    {
+        this.validate();
+
+        return this._textWidth;
+    }
+
+    /**
+     * The height of the overall text, different from fontSize,
+     * which is defined in the style object
+     *
+     * @member {number}
+     * @readonly
+     */
+    get textHeight()
+    {
+        this.validate();
+
+        return this._textHeight;
+    }
+}
 
 BitmapText.fonts = {};

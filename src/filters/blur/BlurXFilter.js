@@ -1,4 +1,4 @@
-import core from '../../core';
+import * as core from '../../core';
 import generateBlurVertSource from './generateBlurVertSource';
 import generateBlurFragSource from './generateBlurFragSource';
 import getMaxBlurKernelSize from './getMaxBlurKernelSize';
@@ -10,12 +10,19 @@ import getMaxBlurKernelSize from './getMaxBlurKernelSize';
  * @extends PIXI.Filter
  * @memberof PIXI.filters
  */
-class BlurXFilter extends core.Filter
+export default class BlurXFilter extends core.Filter
 {
-    constructor(strength, quality, resolution)
+    /**
+     * @param {number} strength - The strength of the blur filter.
+     * @param {number} quality - The quality of the blur filter.
+     * @param {number} resolution - The resolution of the blur filter.
+     * @param {number} [kernelSize=5] - The kernelSize of the blur filter.Options: 5, 7, 9, 11, 13, 15.
+     */
+    constructor(strength, quality, resolution, kernelSize)
     {
-        const vertSrc = generateBlurVertSource(5, true);
-        const fragSrc = generateBlurFragSource(5);
+        kernelSize = kernelSize || 5;
+        const vertSrc = generateBlurVertSource(kernelSize, true);
+        const fragSrc = generateBlurFragSource(kernelSize);
 
         super(
             // vertex shader
@@ -32,12 +39,19 @@ class BlurXFilter extends core.Filter
         this.strength = strength || 8;
 
         this.firstRun = true;
-
     }
 
+    /**
+     * Applies the filter.
+     *
+     * @param {PIXI.FilterManager} filterManager - The manager.
+     * @param {PIXI.RenderTarget} input - The input target.
+     * @param {PIXI.RenderTarget} output - The output target.
+     * @param {boolean} clear - Should the output be cleared before rendering?
+     */
     apply(filterManager, input, output, clear)
     {
-        if(this.firstRun)
+        if (this.firstRun)
         {
             const gl = filterManager.renderer.gl;
             const kernelSize = getMaxBlurKernelSize(gl);
@@ -48,13 +62,13 @@ class BlurXFilter extends core.Filter
             this.firstRun = false;
         }
 
-        this.uniforms.strength = (1/output.size.width) * (output.size.width/input.size.width); /// // *  2 //4//this.strength / 4 / this.passes * (input.frame.width / input.size.width);
+        this.uniforms.strength = (1 / output.size.width) * (output.size.width / input.size.width);
 
         // screen space!
         this.uniforms.strength *= this.strength;
         this.uniforms.strength /= this.passes;// / this.passes//Math.pow(1, this.passes);
 
-        if(this.passes === 1)
+        if (this.passes === 1)
         {
             filterManager.applyFilter(this, input, output, clear);
         }
@@ -64,13 +78,14 @@ class BlurXFilter extends core.Filter
             let flip = input;
             let flop = renderTarget;
 
-            for(let i = 0; i < this.passes-1; i++)
+            for (let i = 0; i < this.passes - 1; i++)
             {
                 filterManager.applyFilter(this, flip, flop, true);
 
-               const temp = flop;
-               flop = flip;
-               flip = temp;
+                const temp = flop;
+
+                flop = flip;
+                flip = temp;
             }
 
             filterManager.applyFilter(this, flip, output, clear);
@@ -83,35 +98,34 @@ class BlurXFilter extends core.Filter
      * Sets the strength of both the blur.
      *
      * @member {number}
-     * @memberof PIXI.filters.BlurXFilter#
      * @default 16
      */
     get blur()
     {
-        return  this.strength;
+        return this.strength;
     }
-    set blur(value)
+
+    set blur(value) // eslint-disable-line require-jsdoc
     {
-        this.padding =  Math.abs(value) * 2;
+        this.padding = Math.abs(value) * 2;
         this.strength = value;
     }
 
      /**
-     * Sets the quality of the blur by modifying the number of passes. More passes means higher quaility bluring but the lower the performance.
+     * Sets the quality of the blur by modifying the number of passes. More passes means higher
+     * quaility bluring but the lower the performance.
      *
      * @member {number}
-     * @memberof PIXI.filters.BlurXFilter#
      * @default 4
      */
     get quality()
     {
-        return  this._quality;
+        return this._quality;
     }
-    set quality(value)
+
+    set quality(value) // eslint-disable-line require-jsdoc
     {
         this._quality = value;
         this.passes = value;
     }
 }
-
-export default BlurXFilter;

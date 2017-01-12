@@ -22,9 +22,12 @@ npm-debug.log
 !.gitkeep
 *__temp
 node_modules
-docs/
-examples_old/
-bin/
+/docs
+/examples_old
+/bin
+/coverage
+/lib
+/dist
 
 # jetBrains IDE ignores
 .idea

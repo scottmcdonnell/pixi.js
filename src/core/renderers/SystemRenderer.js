@@ -1,54 +1,62 @@
-import utils from '../utils';
-import math from '../math';
-import CONST from '../const';
+import { sayHello, hex2string, hex2rgb } from '../utils';
+import { Matrix } from '../math';
+import { RENDERER_TYPE } from '../const';
+import settings from '../settings';
 import Container from '../display/Container';
 import RenderTexture from '../textures/RenderTexture';
 import EventEmitter from 'eventemitter3';
 
-const tempMatrix = new math.Matrix();
+const tempMatrix = new Matrix();
 
 /**
- * The CanvasRenderer draws the scene and all its content onto a 2d canvas. This renderer should be used for browsers that do not support webGL.
- * Don't forget to add the CanvasRenderer.view to your DOM or you will not see anything :)
+ * The SystemRenderer is the base for a Pixi Renderer. It is extended by the {@link PIXI.CanvasRenderer}
+ * and {@link PIXI.WebGLRenderer} which can be used for rendering a Pixi scene.
  *
+ * @abstract
  * @class
  * @extends EventEmitter
  * @memberof PIXI
- * @param system {string} The name of the system this renderer is for.
- * @param [width=800] {number} the width of the canvas view
- * @param [height=600] {number} the height of the canvas view
- * @param [options] {object} The optional renderer parameters
- * @param [options.view] {HTMLCanvasElement} the canvas to use as a view, optional
- * @param [options.transparent=false] {boolean} If the render view is transparent, default false
- * @param [options.autoResize=false] {boolean} If the render view is automatically resized, default false
- * @param [options.antialias=false] {boolean} sets antialias (only applicable in chrome at the moment)
- * @param [options.resolution=1] {number} The resolution / device pixel ratio of the renderer. The resolution of the renderer retina would be 2.
- * @param [options.clearBeforeRender=true] {boolean} This sets if the CanvasRenderer will clear the canvas or
- *      not before the new render pass.
- * @param [options.backgroundColor=0x000000] {number} The background color of the rendered area (shown if not transparent).
- * @param [options.roundPixels=false] {boolean} If true Pixi will Math.floor() x/y values when rendering, stopping pixel interpolation.
  */
-class SystemRenderer extends EventEmitter {
+export default class SystemRenderer extends EventEmitter
+{
+    /**
+     * @param {string} system - The name of the system this renderer is for.
+     * @param {number} [width=800] - the width of the canvas view
+     * @param {number} [height=600] - the height of the canvas view
+     * @param {object} [options] - The optional renderer parameters
+     * @param {HTMLCanvasElement} [options.view] - the canvas to use as a view, optional
+     * @param {boolean} [options.transparent=false] - If the render view is transparent, default false
+     * @param {boolean} [options.autoResize=false] - If the render view is automatically resized, default false
+     * @param {boolean} [options.antialias=false] - sets antialias (only applicable in chrome at the moment)
+     * @param {number} [options.resolution=1] - The resolution / device pixel ratio of the renderer. The
+     *  resolution of the renderer retina would be 2.
+     * @param {boolean} [options.clearBeforeRender=true] - This sets if the CanvasRenderer will clear the canvas or
+     *      not before the new render pass.
+     * @param {number} [options.backgroundColor=0x000000] - The background color of the rendered area
+     *  (shown if not transparent).
+     * @param {boolean} [options.roundPixels=false] - If true Pixi will Math.floor() x/y values when rendering,
+     *  stopping pixel interpolation.
+     */
     constructor(system, width, height, options)
     {
         super();
 
-        utils.sayHello(system);
+        sayHello(system);
 
         // prepare options
         if (options)
         {
-            for (const i in CONST.DEFAULT_RENDER_OPTIONS)
+            for (const i in settings.RENDER_OPTIONS)
             {
                 if (typeof options[i] === 'undefined')
                 {
-                    options[i] = CONST.DEFAULT_RENDER_OPTIONS[i];
+                    options[i] = settings.RENDER_OPTIONS[i];
                 }
             }
         }
         else
         {
-            options = CONST.DEFAULT_RENDER_OPTIONS;
+            options = settings.RENDER_OPTIONS;
         }
 
         /**
@@ -58,7 +66,7 @@ class SystemRenderer extends EventEmitter {
          * @default PIXI.RENDERER_TYPE.UNKNOWN
          * @see PIXI.RENDERER_TYPE
          */
-        this.type = CONST.RENDERER_TYPE.UNKNOWN;
+        this.type = RENDERER_TYPE.UNKNOWN;
 
         /**
          * The width of the canvas view
@@ -89,7 +97,7 @@ class SystemRenderer extends EventEmitter {
          * @member {number}
          * @default 1
          */
-        this.resolution = options.resolution;
+        this.resolution = options.resolution || settings.RESOLUTION;
 
         /**
          * Whether the render view is transparent
@@ -113,7 +121,8 @@ class SystemRenderer extends EventEmitter {
         this.blendModes = null;
 
         /**
-         * The value of the preserveDrawingBuffer flag affects whether or not the contents of the stencil buffer is retained after rendering.
+         * The value of the preserveDrawingBuffer flag affects whether or not the contents of
+         * the stencil buffer is retained after rendering.
          *
          * @member {boolean}
          */
@@ -121,9 +130,10 @@ class SystemRenderer extends EventEmitter {
 
         /**
          * This sets if the CanvasRenderer will clear the canvas or not before the new render pass.
-         * If the scene is NOT transparent Pixi will use a canvas sized fillRect operation every frame to set the canvas background color.
-         * If the scene is transparent Pixi will use clearRect to clear the canvas every frame.
-         * Disable this by setting this to false. For example if your game has a canvas filling background image you often don't need this set.
+         * If the scene is NOT transparent Pixi will use a canvas sized fillRect operation every
+         * frame to set the canvas background color. If the scene is transparent Pixi will use clearRect
+         * to clear the canvas every frame. Disable this by setting this to false. For example if
+         * your game has a canvas filling background image you often don't need this set.
          *
          * @member {boolean}
          * @default
@@ -184,8 +194,8 @@ class SystemRenderer extends EventEmitter {
     /**
      * Resizes the canvas view to the specified width and height
      *
-     * @param width {number} the new width of the canvas view
-     * @param height {number} the new height of the canvas view
+     * @param {number} width - the new width of the canvas view
+     * @param {number} height - the new height of the canvas view
      */
     resize(width, height)
     {
@@ -197,8 +207,8 @@ class SystemRenderer extends EventEmitter {
 
         if (this.autoResize)
         {
-            this.view.style.width = this.width / this.resolution + 'px';
-            this.view.style.height = this.height / this.resolution + 'px';
+            this.view.style.width = `${this.width / this.resolution}px`;
+            this.view.style.height = `${this.height / this.resolution}px`;
         }
     }
 
@@ -206,14 +216,13 @@ class SystemRenderer extends EventEmitter {
      * Useful function that returns a texture of the display object that can then be used to create sprites
      * This can be quite useful if your displayObject is complicated and needs to be reused multiple times.
      *
-     * @param displayObject {PIXI.DisplayObject} The displayObject the object will be generated from
-     * @param scaleMode {number} Should be one of the scaleMode consts
-     * @param resolution {number} The resolution / device pixel ratio of the texture being generated
+     * @param {PIXI.DisplayObject} displayObject - The displayObject the object will be generated from
+     * @param {number} scaleMode - Should be one of the scaleMode consts
+     * @param {number} resolution - The resolution / device pixel ratio of the texture being generated
      * @return {PIXI.Texture} a texture of the graphics object
      */
     generateTexture(displayObject, scaleMode, resolution)
     {
-
         const bounds = displayObject.getLocalBounds();
 
         const renderTexture = RenderTexture.create(bounds.width | 0, bounds.height | 0, scaleMode, resolution);
@@ -229,7 +238,7 @@ class SystemRenderer extends EventEmitter {
     /**
      * Removes everything from the renderer and optionally removes the Canvas DOM element.
      *
-     * @param [removeView=false] {boolean} Removes the Canvas element from the DOM.
+     * @param {boolean} [removeView=false] - Removes the Canvas element from the DOM.
      */
     destroy(removeView)
     {
@@ -238,7 +247,7 @@ class SystemRenderer extends EventEmitter {
             this.view.parentNode.removeChild(this.view);
         }
 
-        this.type = CONST.RENDERER_TYPE.UNKNOWN;
+        this.type = RENDERER_TYPE.UNKNOWN;
 
         this.width = 0;
         this.height = 0;
@@ -271,19 +280,16 @@ class SystemRenderer extends EventEmitter {
      * The background color to fill if not transparent
      *
      * @member {number}
-     * @memberof PIXI.SystemRenderer#
      */
     get backgroundColor()
     {
         return this._backgroundColor;
     }
 
-    set backgroundColor(val)
+    set backgroundColor(value) // eslint-disable-line require-jsdoc
     {
-        this._backgroundColor = val;
-        this._backgroundColorString = utils.hex2string(val);
-        utils.hex2rgb(val, this._backgroundColorRgba);
+        this._backgroundColor = value;
+        this._backgroundColorString = hex2string(value);
+        hex2rgb(value, this._backgroundColorRgba);
     }
 }
-
-export default SystemRenderer;

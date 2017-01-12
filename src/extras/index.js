@@ -1,20 +1,13 @@
-import MovieClip from './MovieClip';
-import TilingSprite from './TilingSprite';
-import BitmapText from './BitmapText';
-
-import cacheAsBitmap from './cacheAsBitmap';
-import getChildByName from './getChildByName';
-import getGlobalPosition from './getGlobalPosition';
-
-
 /**
  * @namespace PIXI.extras
  */
-export default {
-    MovieClip,
-    TilingSprite,
-    BitmapText,
-    cacheAsBitmap,
-    getChildByName,
-    getGlobalPosition
-};
+export { default as TextureTransform } from './TextureTransform';
+export { default as AnimatedSprite } from './AnimatedSprite';
+export { default as TilingSprite } from './TilingSprite';
+export { default as TilingSpriteRenderer } from './webgl/TilingSpriteRenderer';
+export { default as BitmapText } from './BitmapText';
+
+// imported for side effect of extending the prototype only, contains no exports
+import './cacheAsBitmap';
+import './getChildByName';
+import './getGlobalPosition';

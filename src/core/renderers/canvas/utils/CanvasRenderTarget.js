@@ -1,16 +1,19 @@
-import CONST from '../../../const';
+import settings from '../../../settings';
+const { RESOLUTION } = settings;
 
 /**
  * Creates a Canvas element of the given size.
  *
  * @class
  * @memberof PIXI
- * @param width {number} the width for the newly created canvas
- * @param height {number} the height for the newly created canvas
- * @param [resolution=1] The resolution / device pixel ratio of the canvas
  */
-class CanvasRenderTarget
+export default class CanvasRenderTarget
 {
+    /**
+     * @param {number} width - the width for the newly created canvas
+     * @param {number} height - the height for the newly created canvas
+     * @param {number} [resolution=1] - The resolution / device pixel ratio of the canvas
+     */
     constructor(width, height, resolution)
     {
         /**
@@ -27,7 +30,7 @@ class CanvasRenderTarget
          */
         this.context = this.canvas.getContext('2d');
 
-        this.resolution = resolution || CONST.RESOLUTION;
+        this.resolution = resolution || RESOLUTION;
 
         this.resize(width, height);
     }
@@ -40,18 +43,17 @@ class CanvasRenderTarget
     clear()
     {
         this.context.setTransform(1, 0, 0, 1, 0, 0);
-        this.context.clearRect(0,0, this.canvas.width, this.canvas.height);
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     /**
      * Resizes the canvas to the specified width and height.
      *
-     * @param width {number} the new width of the canvas
-     * @param height {number} the new height of the canvas
+     * @param {number} width - the new width of the canvas
+     * @param {number} height - the new height of the canvas
      */
     resize(width, height)
     {
-
         this.canvas.width = width * this.resolution;
         this.canvas.height = height * this.resolution;
     }
@@ -70,13 +72,13 @@ class CanvasRenderTarget
      * The width of the canvas buffer in pixels.
      *
      * @member {number}
-     * @memberof PIXI.CanvasRenderTarget#
      */
     get width()
     {
         return this.canvas.width;
     }
-    set width(val)
+
+    set width(val) // eslint-disable-line require-jsdoc
     {
         this.canvas.width = val;
     }
@@ -85,16 +87,14 @@ class CanvasRenderTarget
      * The height of the canvas buffer in pixels.
      *
      * @member {number}
-     * @memberof PIXI.CanvasRenderTarget#
      */
     get height()
     {
         return this.canvas.height;
     }
-    set height(val)
+
+    set height(val) // eslint-disable-line require-jsdoc
     {
         this.canvas.height = val;
     }
 }
-
-export default CanvasRenderTarget;

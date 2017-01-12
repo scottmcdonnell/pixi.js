@@ -1,4 +1,4 @@
-import core from '../../core';
+import * as core from '../../core';
 import BlurXFilter from './BlurXFilter';
 import BlurYFilter from './BlurYFilter';
 
@@ -10,14 +10,20 @@ import BlurYFilter from './BlurYFilter';
  * @extends PIXI.Filter
  * @memberof PIXI.filters
  */
-class BlurFilter extends core.Filter
+export default class BlurFilter extends core.Filter
 {
-    constructor(strength, quality, resolution)
+    /**
+     * @param {number} strength - The strength of the blur filter.
+     * @param {number} quality - The quality of the blur filter.
+     * @param {number} resolution - The resolution of the blur filter.
+     * @param {number} [kernelSize=5] - The kernelSize of the blur filter.Options: 5, 7, 9, 11, 13, 15.
+     */
+    constructor(strength, quality, resolution, kernelSize)
     {
         super();
 
-        this.blurXFilter = new BlurXFilter();
-        this.blurYFilter = new BlurYFilter();
+        this.blurXFilter = new BlurXFilter(strength, quality, resolution, kernelSize);
+        this.blurYFilter = new BlurYFilter(strength, quality, resolution, kernelSize);
         this.resolution = 1;
 
         this.padding = 0;
@@ -26,9 +32,15 @@ class BlurFilter extends core.Filter
         this.blur = strength || 8;
     }
 
+    /**
+     * Applies the filter.
+     *
+     * @param {PIXI.FilterManager} filterManager - The manager.
+     * @param {PIXI.RenderTarget} input - The input target.
+     * @param {PIXI.RenderTarget} output - The output target.
+     */
     apply(filterManager, input, output)
     {
-
         const renderTarget = filterManager.getRenderTarget(true);
 
         this.blurXFilter.apply(filterManager, input, renderTarget, true);
@@ -41,31 +53,31 @@ class BlurFilter extends core.Filter
      * Sets the strength of both the blurX and blurY properties simultaneously
      *
      * @member {number}
-     * @memberOf PIXI.filters.BlurFilter#
      * @default 2
      */
     get blur()
     {
         return this.blurXFilter.blur;
     }
-    set blur(value)
+
+    set blur(value) // eslint-disable-line require-jsdoc
     {
         this.blurXFilter.blur = this.blurYFilter.blur = value;
-        this.padding = Math.max( Math.abs(this.blurYFilter.strength),  Math.abs(this.blurYFilter.strength)) * 2;
+        this.padding = Math.max(Math.abs(this.blurXFilter.strength), Math.abs(this.blurYFilter.strength)) * 2;
     }
 
     /**
      * Sets the number of passes for blur. More passes means higher quaility bluring.
      *
      * @member {number}
-     * @memberof PIXI.filters.BlurYFilter#
      * @default 1
      */
     get quality()
     {
-        return  this.blurXFilter.quality;
+        return this.blurXFilter.quality;
     }
-    set quality(value)
+
+    set quality(value) // eslint-disable-line require-jsdoc
     {
         this.blurXFilter.quality = this.blurYFilter.quality = value;
     }
@@ -74,35 +86,33 @@ class BlurFilter extends core.Filter
      * Sets the strength of the blurX property
      *
      * @member {number}
-     * @memberOf PIXI.filters.BlurFilter#
      * @default 2
      */
     get blurX()
     {
         return this.blurXFilter.blur;
     }
-    set blurX(value)
+
+    set blurX(value) // eslint-disable-line require-jsdoc
     {
         this.blurXFilter.blur = value;
-        this.padding = Math.max( Math.abs(this.blurYFilter.strength),  Math.abs(this.blurYFilter.strength)) * 2;
+        this.padding = Math.max(Math.abs(this.blurXFilter.strength), Math.abs(this.blurYFilter.strength)) * 2;
     }
 
     /**
      * Sets the strength of the blurY property
      *
      * @member {number}
-     * @memberOf PIXI.filters.BlurFilter#
      * @default 2
      */
     get blurY()
     {
         return this.blurYFilter.blur;
     }
-    set blurY(value)
+
+    set blurY(value) // eslint-disable-line require-jsdoc
     {
         this.blurYFilter.blur = value;
-        this.padding = Math.max( Math.abs(this.blurYFilter.strength),  Math.abs(this.blurYFilter.strength)) * 2;
+        this.padding = Math.max(Math.abs(this.blurXFilter.strength), Math.abs(this.blurYFilter.strength)) * 2;
     }
 }
-
-export default BlurFilter;

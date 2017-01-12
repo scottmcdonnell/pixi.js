@@ -1,10 +1,10 @@
-import math from '../math';
+import { Point, ObservablePoint, Rectangle } from '../math';
+import { sign, TextureCache } from '../utils';
+import { BLEND_MODES } from '../const';
 import Texture from '../textures/Texture';
 import Container from '../display/Container';
-import utils from '../utils';
-import CONST from '../const';
 
-const tempPoint = new math.Point();
+const tempPoint = new Point();
 
 /**
  * The Sprite object is the base for all textured objects that are rendered to the screen
@@ -18,10 +18,12 @@ const tempPoint = new math.Point();
  * @class
  * @extends PIXI.Container
  * @memberof PIXI
- * @param texture {PIXI.Texture} The texture for this sprite
  */
-class Sprite extends Container
+export default class Sprite extends Container
 {
+    /**
+     * @param {PIXI.Texture} texture - The texture for this sprite
+     */
     constructor(texture)
     {
         super();
@@ -33,36 +35,38 @@ class Sprite extends Container
          * Setting the anchor to 1,1 would mean the texture's origin point will be the bottom right corner
          *
          * @member {PIXI.ObservablePoint}
+         * @private
          */
-        this.anchor = new math.ObservablePoint(this.onAnchorUpdate, this);
+        this._anchor = new ObservablePoint(this._onAnchorUpdate, this);
 
         /**
          * The texture that the sprite is using
          *
-         * @member {PIXI.Texture}
          * @private
+         * @member {PIXI.Texture}
          */
         this._texture = null;
 
         /**
          * The width of the sprite (this is initially set by the texture)
          *
-         * @member {number}
          * @private
+         * @member {number}
          */
         this._width = 0;
 
         /**
          * The height of the sprite (this is initially set by the texture)
          *
-         * @member {number}
          * @private
+         * @member {number}
          */
         this._height = 0;
 
         /**
          * The tint applied to the sprite. This is a hex value. A value of 0xFFFFFF will remove any tint effect.
          *
+         * @private
          * @member {number}
          * @default 0xFFFFFF
          */
@@ -77,21 +81,21 @@ class Sprite extends Container
          * @default PIXI.BLEND_MODES.NORMAL
          * @see PIXI.BLEND_MODES
          */
-        this.blendMode = CONST.BLEND_MODES.NORMAL;
+        this.blendMode = BLEND_MODES.NORMAL;
 
         /**
          * The shader that will be used to render the sprite. Set to null to remove a current shader.
          *
-         * @member {PIXI.AbstractFilter|PIXI.Shader}
+         * @member {PIXI.Filter|PIXI.Shader}
          */
         this.shader = null;
 
         /**
          * An internal cached value of the tint.
          *
+         * @private
          * @member {number}
          * @default 0xFFFFFF
-         * @private
          */
         this.cachedTint = 0xFFFFFF;
 
@@ -100,18 +104,31 @@ class Sprite extends Container
 
         /**
          * this is used to store the vertex data of the sprite (basically a quad)
-         * @type {Float32Array}
+         *
+         * @private
+         * @member {Float32Array}
          */
         this.vertexData = new Float32Array(8);
 
         /**
-         * this is used to calculate the bounds of the object IF it is a trimmed sprite
-         * @type {Float32Array}
+         * This is used to calculate the bounds of the object IF it is a trimmed sprite
+         *
+         * @private
+         * @member {Float32Array}
          */
         this.vertexTrimmedData = null;
 
         this._transformID = -1;
         this._textureID = -1;
+
+        /**
+         * Plugin that is responsible for rendering this element.
+         * Allows to customize the rendering process without overriding '_renderWebGL' & '_renderCanvas' methods.
+         *
+         * @member {string}
+         * @default 'sprite'
+         */
+        this.pluginName = 'sprite';
     }
 
     /**
@@ -126,16 +143,21 @@ class Sprite extends Container
         // so if _width is 0 then width was not set..
         if (this._width)
         {
-            this.scale.x = utils.sign(this.scale.x) * this._width / this.texture.orig.width;
+            this.scale.x = sign(this.scale.x) * this._width / this.texture.orig.width;
         }
 
         if (this._height)
         {
-            this.scale.y = utils.sign(this.scale.y) * this._height / this.texture.orig.height;
+            this.scale.y = sign(this.scale.y) * this._height / this.texture.orig.height;
         }
     }
 
-    onAnchorUpdate()
+    /**
+     * Called when the anchor position updates.
+     *
+     * @private
+     */
+    _onAnchorUpdate()
     {
         this._transformID = -1;
     }
@@ -145,7 +167,7 @@ class Sprite extends Container
      */
     calculateVertices()
     {
-        if(this._transformID === this.transform._worldID && this._textureID === this._texture._updateID)
+        if (this._transformID === this.transform._worldID && this._textureID === this._texture._updateID)
         {
             return;
         }
@@ -155,49 +177,58 @@ class Sprite extends Container
 
         // set the vertex data
 
-        const texture = this._texture,
-            wt = this.transform.worldTransform,
-            a = wt.a, b = wt.b, c = wt.c, d = wt.d, tx = wt.tx, ty = wt.ty,
-            vertexData = this.vertexData,
-            trim = texture.trim,
-            orig = texture.orig;
-        let w0, w1, h0, h1;
+        const texture = this._texture;
+        const wt = this.transform.worldTransform;
+        const a = wt.a;
+        const b = wt.b;
+        const c = wt.c;
+        const d = wt.d;
+        const tx = wt.tx;
+        const ty = wt.ty;
+        const vertexData = this.vertexData;
+        const trim = texture.trim;
+        const orig = texture.orig;
+        const anchor = this._anchor;
 
+        let w0 = 0;
+        let w1 = 0;
+        let h0 = 0;
+        let h1 = 0;
 
         if (trim)
         {
-            // if the sprite is trimmed and is not a tilingsprite then we need to add the extra space before transforming the sprite coords..
-            w1 = trim.x - this.anchor._x * orig.width;
+            // if the sprite is trimmed and is not a tilingsprite then we need to add the extra
+            // space before transforming the sprite coords.
+            w1 = trim.x - (anchor._x * orig.width);
             w0 = w1 + trim.width;
 
-            h1 = trim.y - this.anchor._y * orig.height;
+            h1 = trim.y - (anchor._y * orig.height);
             h0 = h1 + trim.height;
-
         }
         else
         {
-            w0 = orig.width * (1-this.anchor._x);
-            w1 = orig.width * -this.anchor._x;
+            w0 = orig.width * (1 - anchor._x);
+            w1 = orig.width * -anchor._x;
 
-            h0 = orig.height * (1-this.anchor._y);
-            h1 = orig.height * -this.anchor._y;
+            h0 = orig.height * (1 - anchor._y);
+            h1 = orig.height * -anchor._y;
         }
 
         // xy
-        vertexData[0] = a * w1 + c * h1 + tx;
-        vertexData[1] = d * h1 + b * w1 + ty;
+        vertexData[0] = (a * w1) + (c * h1) + tx;
+        vertexData[1] = (d * h1) + (b * w1) + ty;
 
         // xy
-        vertexData[2] = a * w0 + c * h1 + tx;
-        vertexData[3] = d * h1 + b * w0 + ty;
+        vertexData[2] = (a * w0) + (c * h1) + tx;
+        vertexData[3] = (d * h1) + (b * w0) + ty;
 
          // xy
-        vertexData[4] = a * w0 + c * h0 + tx;
-        vertexData[5] = d * h0 + b * w0 + ty;
+        vertexData[4] = (a * w0) + (c * h0) + tx;
+        vertexData[5] = (d * h0) + (b * w0) + ty;
 
         // xy
-        vertexData[6] = a * w1 + c * h0 + tx;
-        vertexData[7] = d * h0 + b * w1 + ty;
+        vertexData[6] = (a * w1) + (c * h0) + tx;
+        vertexData[7] = (d * h0) + (b * w1) + ty;
     }
 
     /**
@@ -206,7 +237,7 @@ class Sprite extends Container
      */
     calculateTrimmedVertices()
     {
-        if(!this.vertexTrimmedData)
+        if (!this.vertexTrimmedData)
         {
             this.vertexTrimmedData = new Float32Array(8);
         }
@@ -215,69 +246,78 @@ class Sprite extends Container
         const texture = this._texture;
         const vertexData = this.vertexTrimmedData;
         const orig = texture.orig;
+        const anchor = this._anchor;
 
         // lets calculate the new untrimmed bounds..
-        const wt = this.transform.worldTransform,
-            a = wt.a, b = wt.b, c = wt.c, d = wt.d, tx = wt.tx, ty = wt.ty;
+        const wt = this.transform.worldTransform;
+        const a = wt.a;
+        const b = wt.b;
+        const c = wt.c;
+        const d = wt.d;
+        const tx = wt.tx;
+        const ty = wt.ty;
 
-        const w0 = (orig.width ) * (1-this.anchor._x);
-        const w1 = (orig.width ) * -this.anchor._x;
+        const w0 = (orig.width) * (1 - anchor._x);
+        const w1 = (orig.width) * -anchor._x;
 
-        const h0 = orig.height * (1-this.anchor._y);
-        const h1 = orig.height * -this.anchor._y;
-
-        // xy
-        vertexData[0] = a * w1 + c * h1 + tx;
-        vertexData[1] = d * h1 + b * w1 + ty;
-
-        // xy
-        vertexData[2] = a * w0 + c * h1 + tx;
-        vertexData[3] = d * h1 + b * w0 + ty;
+        const h0 = orig.height * (1 - anchor._y);
+        const h1 = orig.height * -anchor._y;
 
         // xy
-        vertexData[4] = a * w0 + c * h0 + tx;
-        vertexData[5] = d * h0 + b * w0 + ty;
+        vertexData[0] = (a * w1) + (c * h1) + tx;
+        vertexData[1] = (d * h1) + (b * w1) + ty;
 
         // xy
-        vertexData[6] = a * w1 + c * h0 + tx;
-        vertexData[7] = d * h0 + b * w1 + ty;
+        vertexData[2] = (a * w0) + (c * h1) + tx;
+        vertexData[3] = (d * h1) + (b * w0) + ty;
+
+        // xy
+        vertexData[4] = (a * w0) + (c * h0) + tx;
+        vertexData[5] = (d * h0) + (b * w0) + ty;
+
+        // xy
+        vertexData[6] = (a * w1) + (c * h0) + tx;
+        vertexData[7] = (d * h0) + (b * w1) + ty;
     }
 
     /**
     *
     * Renders the object using the WebGL renderer
     *
-    * @param renderer {PIXI.WebGLRenderer}
     * @private
+    * @param {PIXI.WebGLRenderer} renderer - The webgl renderer to use.
     */
     _renderWebGL(renderer)
     {
         this.calculateVertices();
 
-        renderer.setObjectRenderer(renderer.plugins.sprite);
-        renderer.plugins.sprite.render(this);
+        renderer.setObjectRenderer(renderer.plugins[this.pluginName]);
+        renderer.plugins[this.pluginName].render(this);
     }
 
     /**
     * Renders the object using the Canvas renderer
     *
-    * @param renderer {PIXI.CanvasRenderer} The renderer
     * @private
+    * @param {PIXI.CanvasRenderer} renderer - The renderer
     */
     _renderCanvas(renderer)
     {
-        renderer.plugins.sprite.render(this);
+        renderer.plugins[this.pluginName].render(this);
     }
 
-
+    /**
+     * Updates the bounds of the sprite.
+     *
+     * @private
+     */
     _calculateBounds()
     {
+        const trim = this._texture.trim;
+        const orig = this._texture.orig;
 
-        const trim = this._texture.trim,
-            orig = this._texture.orig;
-
-        //First lets check to see if the current texture has a trim..
-        if (!trim || trim.width === orig.width && trim.height === orig.height)
+        // First lets check to see if the current texture has a trim..
+        if (!trim || (trim.width === orig.width && trim.height === orig.height))
         {
             // no trim! lets use the usual calculations..
             this.calculateVertices();
@@ -294,24 +334,24 @@ class Sprite extends Container
     /**
      * Gets the local bounds of the sprite object.
      *
+     * @param {Rectangle} rect - The output rectangle.
+     * @return {Rectangle} The bounds.
      */
-
     getLocalBounds(rect)
     {
         // we can do a fast local bounds if the sprite has no children!
-        if(this.children.length === 0)
+        if (this.children.length === 0)
         {
+            this._bounds.minX = this._texture.orig.width * -this._anchor._x;
+            this._bounds.minY = this._texture.orig.height * -this._anchor._y;
+            this._bounds.maxX = this._texture.orig.width * (1 - this._anchor._x);
+            this._bounds.maxY = this._texture.orig.height * (1 - this._anchor._x);
 
-            this._bounds.minX = -this._texture.orig.width * this.anchor._x;
-            this._bounds.minY = -this._texture.orig.height * this.anchor._y;
-            this._bounds.maxX = this._texture.orig.width;
-            this._bounds.maxY = this._texture.orig.height;
-
-            if(!rect)
+            if (!rect)
             {
-                if(!this._localBoundsRect)
+                if (!this._localBoundsRect)
                 {
-                    this._localBoundsRect = new math.Rectangle();
+                    this._localBoundsRect = new Rectangle();
                 }
 
                 rect = this._localBoundsRect;
@@ -319,33 +359,30 @@ class Sprite extends Container
 
             return this._bounds.getRectangle(rect);
         }
-        else
-        {
-            return Container.prototype.getLocalBounds.call(this, rect);
-        }
 
+        return super.getLocalBounds.call(this, rect);
     }
 
     /**
-    * Tests if a point is inside this sprite
-    *
-    * @param point {PIXI.Point} the point to test
-    * @return {boolean} the result of the test
-    */
-    containsPoint( point )
+     * Tests if a point is inside this sprite
+     *
+     * @param {PIXI.Point} point - the point to test
+     * @return {boolean} the result of the test
+     */
+    containsPoint(point)
     {
-        this.worldTransform.applyInverse(point,  tempPoint);
+        this.worldTransform.applyInverse(point, tempPoint);
 
         const width = this._texture.orig.width;
         const height = this._texture.orig.height;
         const x1 = -width * this.anchor.x;
-        let y1;
+        let y1 = 0;
 
-        if ( tempPoint.x > x1 && tempPoint.x < x1 + width )
+        if (tempPoint.x > x1 && tempPoint.x < x1 + width)
         {
             y1 = -height * this.anchor.y;
 
-            if ( tempPoint.y > y1 && tempPoint.y < y1 + height )
+            if (tempPoint.y > y1 && tempPoint.y < y1 + height)
             {
                 return true;
             }
@@ -354,26 +391,28 @@ class Sprite extends Container
         return false;
     }
 
-
     /**
      * Destroys this sprite and optionally its texture and children
      *
-     * @param [options] {object|boolean} Options parameter. A boolean will act as if all options have been set to that value
-     * @param [options.children=false] {boolean} if set to true, all the children will have their destroy
+     * @param {object|boolean} [options] - Options parameter. A boolean will act as if all options
+     *  have been set to that value
+     * @param {boolean} [options.children=false] - if set to true, all the children will have their destroy
      *      method called as well. 'options' will be passed on to those calls.
-     * @param [options.texture=false] {boolean} Should it destroy the current texture of the sprite as well
-     * @param [options.baseTexture=false] {boolean} Should it destroy the base texture of the sprite as well
+     * @param {boolean} [options.texture=false] - Should it destroy the current texture of the sprite as well
+     * @param {boolean} [options.baseTexture=false] - Should it destroy the base texture of the sprite as well
      */
     destroy(options)
     {
         super.destroy(options);
 
-        this.anchor = null;
+        this._anchor = null;
 
         const destroyTexture = typeof options === 'boolean' ? options : options && options.texture;
+
         if (destroyTexture)
         {
             const destroyBaseTexture = typeof options === 'boolean' ? options : options && options.baseTexture;
+
             this._texture.destroy(!!destroyBaseTexture);
         }
 
@@ -401,12 +440,12 @@ class Sprite extends Container
      * The frame ids are created when a Texture packer file has been loaded
      *
      * @static
-     * @param frameId {string} The frame Id of the texture in the cache
+     * @param {string} frameId - The frame Id of the texture in the cache
      * @return {PIXI.Sprite} A new Sprite using a texture from the texture cache matching the frameId
      */
     static fromFrame(frameId)
     {
-        const texture = utils.TextureCache[frameId];
+        const texture = TextureCache[frameId];
 
         if (!texture)
         {
@@ -421,9 +460,10 @@ class Sprite extends Container
      * If the image is not in the texture cache it will be loaded
      *
      * @static
-     * @param imageId {string} The image url of the texture
-     * @param [crossorigin=(auto)] {boolean} if you want to specify the cross-origin parameter
-     * @param [scaleMode=PIXI.SCALE_MODES.DEFAULT] {number} if you want to specify the scale mode, see {@link PIXI.SCALE_MODES} for possible values
+     * @param {string} imageId - The image url of the texture
+     * @param {boolean} [crossorigin=(auto)] - if you want to specify the cross-origin parameter
+     * @param {number} [scaleMode=PIXI.settings.SCALE_MODE] - if you want to specify the scale mode,
+     *  see {@link PIXI.SCALE_MODES} for possible values
      * @return {PIXI.Sprite} A new Sprite using a texture from the texture cache matching the image id
      */
     static fromImage(imageId, crossorigin, scaleMode)
@@ -435,16 +475,17 @@ class Sprite extends Container
      * The width of the sprite, setting this will actually modify the scale to achieve the value set
      *
      * @member {number}
-     * @memberof PIXI.Sprite#
      */
     get width()
     {
-        return Math.abs(this.scale.x) * this.texture.orig.width;
+        return Math.abs(this.scale.x) * this._texture.orig.width;
     }
-    set width(value)
+
+    set width(value) // eslint-disable-line require-jsdoc
     {
-        const sign = utils.sign(this.scale.x) || 1;
-        this.scale.x = sign * value / this.texture.orig.width;
+        const s = sign(this.scale.x) || 1;
+
+        this.scale.x = s * value / this._texture.orig.width;
         this._width = value;
     }
 
@@ -452,24 +493,51 @@ class Sprite extends Container
      * The height of the sprite, setting this will actually modify the scale to achieve the value set
      *
      * @member {number}
-     * @memberof PIXI.Sprite#
      */
     get height()
     {
-        return  Math.abs(this.scale.y) * this.texture.orig.height;
+        return Math.abs(this.scale.y) * this._texture.orig.height;
     }
-    set height(value)
+
+    set height(value) // eslint-disable-line require-jsdoc
     {
-        const sign = utils.sign(this.scale.y) || 1;
-        this.scale.y = sign * value / this.texture.orig.height;
+        const s = sign(this.scale.y) || 1;
+
+        this.scale.y = s * value / this._texture.orig.height;
         this._height = value;
     }
 
+    /**
+     * The anchor sets the origin point of the texture.
+     * The default is 0,0 this means the texture's origin is the top left
+     * Setting the anchor to 0.5,0.5 means the texture's origin is centered
+     * Setting the anchor to 1,1 would mean the texture's origin point will be the bottom right corner
+     *
+     * @member {PIXI.ObservablePoint}
+     */
+    get anchor()
+    {
+        return this._anchor;
+    }
+
+    set anchor(value) // eslint-disable-line require-jsdoc
+    {
+        this._anchor.copy(value);
+    }
+
+    /**
+     * The tint applied to the sprite. This is a hex value. A value of
+     * 0xFFFFFF will remove any tint effect.
+     *
+     * @member {number}
+     * @default 0xFFFFFF
+     */
     get tint()
     {
-        return  this._tint;
+        return this._tint;
     }
-    set tint(value)
+
+    set tint(value) // eslint-disable-line require-jsdoc
     {
         this._tint = value;
         this._tintRGB = (value >> 16) + (value & 0xff00) + ((value & 0xff) << 16);
@@ -479,13 +547,13 @@ class Sprite extends Container
      * The texture that the sprite is using
      *
      * @member {PIXI.Texture}
-     * @memberof PIXI.Sprite#
      */
     get texture()
     {
-        return  this._texture;
+        return this._texture;
     }
-    set texture(value)
+
+    set texture(value) // eslint-disable-line require-jsdoc
     {
         if (this._texture === value)
         {
@@ -511,5 +579,3 @@ class Sprite extends Container
         }
     }
 }
-
-export default Sprite;
